@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Trend-Catcher AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .hidden-item { display: none !important; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-8">
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center mb-12">
+            <h1 class="text-5xl font-extrabold mb-4 bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">Trend-Catcher AI</h1>
+            <p class="text-slate-400 text-lg">구독 이메일: <span class="text-blue-400 font-bold">{{ data.email if data.email else '미등록' }}</span></p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                <h3 class="text-sm font-bold text-slate-400 mb-3 italic">1. 뉴스레터 구독 설정</h3>
+                <form action="/set_email" method="post" class="flex gap-2">
+                    <input type="email" name="email" placeholder="이메일 주소 입력" class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-xl text-sm font-bold transition-all">저장</button>
+                </form>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
+                <h3 class="text-sm font-bold text-slate-400 mb-3 italic">2. 관심 기술 추가</h3>
+                <form action="/add" method="post" class="flex gap-2">
+                    <input type="text" name="interest" placeholder="예: Docker, React" class="flex-grow bg-slate-900 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none" required>
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-sm font-bold transition-all">추가</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="mb-8 relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"></i>
+            <input type="text" id="search-input" onkeyup="filterTopics()" placeholder="리포트 제목 또는 날짜로 검색..." 
+                   class="w-full bg-slate-800 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 focus:ring-2 focus:ring-blue-500 outline-none shadow-xl">
+        </div>
+
+        <div class="grid gap-6" id="topic-list">
+            {% for topic, history in data.interests.items() %}
+            <div class="topic-item glass-card p-6 rounded-2xl border border-slate-700 shadow-lg relative group" data-topic="{{ topic | lower }}">
+                <form action="/delete_topic/{{ topic }}" method="post" class="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button type="submit" onclick="return confirm('이 키워드를 삭제할까요?')" class="text-slate-500 hover:text-red-500"><i class="fa-solid fa-trash-can text-lg"></i></button>
+                </form>
+
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                    <h3 class="text-2xl font-bold text-blue-400">{{ topic }}</h3>
+                    <button onclick="startAnalysis('{{ topic }}')" class="bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white px-6 py-2 rounded-xl text-sm font-bold border border-blue-600/30 transition-all">
+                        <i class="fa-solid fa-sync mr-2"></i>새 리포트 분석
+                    </button>
+                </div>
+
+                <div class="space-y-2">
+                    {% for entry in history %}
+                    <div class="history-item flex items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 hover:border-slate-500 transition-all" data-date="{{ entry.date }}">
+                        <span class="text-sm text-slate-400"><i class="fa-regular fa-clock mr-2"></i>{{ entry.date }}</span>
+                        <div class="flex items-center gap-4">
+                            <a href="/history/{{ topic }}/{{ loop.index0 }}" class="text-blue-400 hover:underline text-sm font-bold">리포트 보기</a>
+                            <form action="/delete_history/{{ topic }}/{{ loop.index0 }}" method="post">
+                                <button type="submit" onclick="return confirm('삭제하시겠습니까?')" class="text-slate-600 hover:text-red-400"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div id="loading" class="hidden fixed inset-0 bg-slate-900/95 backdrop-blur-md flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-xl font-bold text-white">에이전트가 정보를 수집하고 있습니다...</p>
+        </div>
+    </div>
+
+    <script>
+        function filterTopics() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const topics = document.getElementsByClassName('topic-item');
+            for (let topic of topics) {
+                const topicName = topic.getAttribute('data-topic');
+                const historyDates = Array.from(topic.getElementsByClassName('history-item')).map(el => el.getAttribute('data-date')).join(' ');
+                topic.classList.toggle('hidden-item', !topicName.includes(query) && !historyDates.includes(query));
+            }
+        }
+        function startAnalysis(topic) {
+            document.getElementById('loading').classList.remove('hidden');
+            location.href = `/analyze/${topic}`;
+        }
+    </script>
+</body>
+</html>
