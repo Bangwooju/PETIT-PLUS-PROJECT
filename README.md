@@ -102,9 +102,19 @@ TAVILY_API_KEY=your_key_here
 
 ```bash
 uvicorn main:app --reload
-
 ```
 
 실행 후 브라우저에서 `http://127.0.0.1:8000`에 접속하여 서비스를 이용할 수 있습니다.
 
 ---
+
+## 실행 화면
+![메인](images/0.png)
+
+![보고서 상세](images/1.png)
+
+![보고서에 대한 질의](images/2.png)
+
+![PDF 저장](images/3.png)
+
+![PDF](images/4.png)
